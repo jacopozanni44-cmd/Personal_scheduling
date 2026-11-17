@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f6cbd">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SnapCal">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<title>SnapCal: screenshots to Outlook events</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f7fb; --card:#fff; --ink:#151a2d; --muted:#667085; --line:#e4e7ef;
+    --brand:#0f6cbd; --brand-ink:#fff; --brand-soft:#e8f1fb; --ok:#127a3e; --warn:#a15c00; --err:#b42318;
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1220; --card:#171b2e; --ink:#eef0f7; --muted:#9aa3b8; --line:#2a3048;
+      --brand:#4ea1f0; --brand-ink:#08111f; --brand-soft:#16294a; --ok:#4cc38a; --warn:#f0b35a; --err:#f97066; }
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+  .wrap{max-width:980px;margin:0 auto;padding:28px 18px 60px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+  h1{font-size:24px;margin:0;display:flex;align-items:center;gap:10px}
+  h1 .logo{width:34px;height:34px;border-radius:9px;background:var(--brand);display:grid;place-items:center;color:var(--brand-ink)}
+  .sub{color:var(--muted);font-size:14px;margin:4px 0 0}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+  .seg button{border:0;background:transparent;color:var(--muted);padding:8px 12px;font:inherit;font-size:13px;cursor:pointer}
+  .seg button.on{background:var(--brand-soft);color:var(--brand);font-weight:600}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+  .drop{border:2px dashed var(--line);border-radius:var(--radius);padding:28px 18px;text-align:center;cursor:pointer;transition:.15s}
+  .drop.over{border-color:var(--brand);background:var(--brand-soft)}
+  .drop strong{display:block;font-size:16px;margin-bottom:4px}
+  .drop span{color:var(--muted);font-size:13px}
+  .thumbs{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+  .thumb{position:relative;width:96px;height:96px;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+  .thumb img{width:100%;height:100%;object-fit:cover}
+  .thumb button{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;font-size:13px;line-height:1}
+  textarea,input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 10px;width:100%}
+  textarea{min-height:70px;resize:vertical;margin-top:14px}
+  label.small{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+  .btn{border:0;border-radius:10px;padding:10px 16px;font:inherit;font-weight:600;cursor:pointer;background:var(--brand);color:var(--brand-ink);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  .btn.ghost{background:transparent;color:var(--brand);border:1px solid var(--line)}
+  .btn.sm{padding:7px 12px;font-size:13px}
+  .status{font-size:13px;color:var(--muted)}
+  .status.err{color:var(--err)} .status.ok{color:var(--ok)}
+  h2{font-size:17px;margin:28px 0 12px;display:flex;justify-content:space-between;align-items:center}
+  .events{display:grid;gap:12px}
+  .ev{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+  .ev.done{border-color:var(--ok)}
+  .ev-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px}
+  .ev-grid .full{grid-column:1/-1}
+  .ev-grid .half{grid-column:span 2}
+  @media (max-width:640px){ .ev-grid{grid-template-columns:1fr 1fr} .ev-grid .t{grid-column:1/-1} .ev-grid .half{grid-column:1/-1} }
+  .ev-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .chip{font-size:12px;padding:3px 8px;border-radius:999px;background:var(--brand-soft);color:var(--brand)}
+  .chip.low{background:#fff3e0;color:var(--warn)}
+  @media (prefers-color-scheme: dark){ .chip.low{background:#3a2a10} }
+  .chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+  .chk input{width:auto}
+  .empty{color:var(--muted);text-align:center;padding:26px;border:1px dashed var(--line);border-radius:var(--radius)}
+  .note{font-size:12px;color:var(--muted);margin-top:22px}
+  .spin{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:r .8s linear infinite}
+  @keyframes r{to{transform:rotate(360deg)}}
+  .conn{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .conn.on{border-color:var(--ok)}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:6px}
+  .wrap{padding-top:max(28px, env(safe-area-inset-top));padding-bottom:max(60px, env(safe-area-inset-bottom));
+        padding-left:max(18px, env(safe-area-inset-left));padding-right:max(18px, env(safe-area-inset-right))}
+  .mobile-only, .drop .mobile-only{display:none}
+  @media (max-width:640px), (pointer:coarse){
+    .wrap{padding-left:max(12px, env(safe-area-inset-left));padding-right:max(12px, env(safe-area-inset-right))}
+    h1{font-size:21px}
+    header > div:last-child{width:100%}
+    .seg{display:flex} .seg button{flex:1;padding:10px 8px}
+    textarea,input,select{font-size:16px} /* stops iOS zooming into fields */
+    .btn{padding:12px 16px} .btn.sm{padding:10px 14px;font-size:14px}
+    .drop{padding:30px 14px}
+    .desktop-only, .drop .desktop-only{display:none} .mobile-only, .drop .mobile-only{display:block}
+    h2{flex-wrap:wrap;gap:10px}
+    .conn .btn{width:100%;justify-content:center}
+  }
+  .tabs{display:flex;gap:6px;margin-bottom:14px}
+  .tabs button{border:1px solid var(--line);background:var(--card);color:var(--muted);padding:9px 18px;border-radius:10px;font:inherit;font-weight:600;cursor:pointer}
+  .tabs button.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+  .cal-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .cal-head strong{font-size:17px;min-width:150px;text-align:center}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:8px}
+  .cal-dow{font-size:11px;color:var(--muted);text-align:center;padding:4px 0;font-weight:600}
+  .cal-cell{min-height:88px;border:1px solid var(--line);border-radius:8px;padding:4px;cursor:pointer;background:var(--card);overflow:hidden;text-align:left;font:inherit;color:inherit;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;width:100%}
+  .cal-cell.out{opacity:.45}
+  .cal-cell.today .num{background:var(--brand);color:var(--brand-ink);border-radius:50%}
+  .cal-cell.sel{outline:2px solid var(--brand);outline-offset:-1px}
+  .num{display:inline-grid;place-items:center;width:22px;height:22px;font-size:12px;font-weight:600}
+  .pill{display:block;font-size:11px;padding:1px 4px;border-radius:4px;background:var(--brand-soft);color:var(--brand);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .pill.pend{background:transparent;border:1px dashed var(--brand)}
+  .more{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+  .dots{display:none;gap:3px;justify-content:center;margin-top:3px;flex-wrap:wrap}
+  .dots i{width:6px;height:6px;border-radius:50%;background:var(--brand)}
+  .dots i.pend{background:transparent;border:1px solid var(--brand)}
+  .agenda{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+  .agenda .time{min-width:100px;font-size:13px;color:var(--muted);font-weight:600}
+  .agenda .what{flex:1;min-width:0}
+  .agenda .what div{font-size:13px;color:var(--muted)}
+  @media (max-width:640px){
+    .cal-grid{gap:3px} .cal-cell{min-height:50px;text-align:center;padding:3px 1px;align-items:center}
+    .pill,.more{display:none} .dots{display:flex}
+    .cal-head strong{min-width:0;flex:1}
+    .agenda .time{min-width:78px}
+  }
+  .link{background:none;border:0;color:var(--muted);cursor:pointer;font:inherit;font-size:13px;text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span class="logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      </span>SnapCal</h1>
+      <p class="sub">Drop screenshots, photos or text. Get Outlook events in one click.</p>
+    </div>
+    <div>
+      <label class="small">Outlook account</label>
+      <div class="seg" id="acct">
+        <button data-v="office" class="on">Work / school</button>
+        <button data-v="live">Personal (outlook.com)</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="card conn" id="conn">
+    <div>
+      <strong id="connTitle">Outlook direct sync</strong>
+      <div class="status" id="connMsg">Checking your Microsoft 365 connection...</div>
+    </div>
+    <button class="btn sm" id="connBtn" hidden>Connect Outlook</button>
+  </section>
+
+  <nav class="tabs" id="tabs">
+    <button data-t="add" class="on">Add events</button>
+    <button data-t="cal">Calendar</button>
+  </nav>
+
+  <div id="viewAdd">
+  <section class="card">
+    <div class="drop" id="drop" tabindex="0">
+      <strong class="desktop-only">Drop images here, click to choose, or paste (Ctrl/Cmd+V)</strong>
+      <strong class="mobile-only">Tap to take a photo or pick screenshots</strong>
+      <span>Flyers, booking confirmations, chat screenshots, timetables, invitations</span>
+      <input type="file" id="file" accept="image/*" multiple hidden>
+    </div>
+    <div class="thumbs" id="thumbs"></div>
+    <textarea id="txt" placeholder="Optional: paste text too (an email, a message, a list of dates)..."></textarea>
+    <div class="row">
+      <button class="btn" id="go" disabled>Find events</button>
+      <span class="status" id="status"></span>
+    </div>
+  </section>
+
+  <h2><span>Events <span class="status" id="count"></span></span>
+    <span class="row" style="margin:0">
+      <button class="btn ghost sm" id="addManual">+ Add manually</button>
+      <button class="btn sm" id="addAll" hidden>Add all to calendar</button>
+    </span></h2>
+  <div class="events" id="events"><div class="empty">Events found in your images will show up here. Check them, then press "Add to Outlook".</div></div>
+
+  <p class="note">With Outlook connected, "Add to calendar" creates the event straight in your default calendar. "Open in Outlook" instead opens Outlook on the web with the event filled in (pick the account type at the top), and you press Save there. All-day events always use "Open in Outlook". Times use your device's time zone (<span id="tz"></span>).</p>
+  </div>
+
+  <div id="viewCal" hidden>
+    <section class="card">
+      <div class="cal-head">
+        <button class="btn ghost sm" id="calPrev" aria-label="Previous month">&#8249;</button>
+        <strong id="calTitle"></strong>
+        <button class="btn ghost sm" id="calNext" aria-label="Next month">&#8250;</button>
+        <button class="btn ghost sm" id="calToday">Today</button>
+        <button class="link" id="calRefresh">Refresh</button>
+      </div>
+      <div class="status" id="calMsg"></div>
+      <div class="cal-grid" id="calGrid"></div>
+    </section>
+    <h2 id="dayTitle"></h2>
+    <div class="events" id="dayList"></div>
+    <p class="note">Solid = in your Outlook calendar. Dashed = found in a screenshot but not added yet.</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const state = { images: [], events: [], acct: 'office' };
+  const _n = new Date();
+  const cal = { month: new Date(_n.getFullYear(), _n.getMonth(), 1), sel: _n.toLocaleDateString('en-CA'), events: [], loadedKey: '', loading: false, stale: false, view: 'add' };
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
+  $('#tz').textContent = tz;
+  try { const a = localStorage.getItem('snapcal_acct'); if (a) setAcct(a); } catch(e){}
+
+  // ---------- account toggle ----------
+  function setAcct(v){
+    state.acct = v;
+    document.querySelectorAll('#acct button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+    try { localStorage.setItem('snapcal_acct', v); } catch(e){}
+    renderEvents();
+  }
+  $('#acct').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setAcct(b.dataset.v); });
+
+  // ---------- image intake ----------
+  const drop = $('#drop'), file = $('#file');
+  drop.addEventListener('click', () => file.click());
+  drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') file.click(); });
+  file.addEventListener('change', () => { addFiles(file.files); file.value = ''; });
+  ['dragenter','dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave','drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+  document.addEventListener('paste', e => {
+    const files = [...(e.clipboardData?.items || [])].filter(i => i.type.startsWith('image/')).map(i => i.getAsFile()).filter(Boolean);
+    if (files.length) { e.preventDefault(); addFiles(files); }
+  });
+  $('#txt').addEventListener('input', updateGo);
+
+  async function addFiles(list){
+    for (const f of [...list]) {
+      if (!f.type.startsWith('image/')) continue;
+      try {
+        const blob = await shrink(f);
+        state.images.push({ blob, url: URL.createObjectURL(blob) });
+      } catch(e) { setStatus('Could not read ' + (f.name || 'an image'), 'err'); }
+    }
+    renderThumbs(); updateGo();
+  }
+
+  // keep text readable but uploads light
+  function shrink(f, max = 2000){
+    return new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => {
+        const s = Math.min(1, max / Math.max(img.width, img.height));
+        if (s === 1 && f.size < 3.5e6) { res(f); return; }
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob(b => b ? res(b) : rej(), 'image/jpeg', 0.88);
+      };
+      img.onerror = rej;
+      img.src = URL.createObjectURL(f);
+    });
+  }
+
+  function renderThumbs(){
+    const t = $('#thumbs'); t.innerHTML = '';
+    state.images.forEach((im, i) => {
+      const d = document.createElement('div'); d.className = 'thumb';
+      d.innerHTML = `<img alt="upload ${i+1}"><button title="Remove">×</button>`;
+      d.querySelector('img').src = im.url;
+      d.querySelector('button').onclick = ev => { ev.stopPropagation(); URL.revokeObjectURL(im.url); state.images.splice(i,1); renderThumbs(); updateGo(); };
+      t.appendChild(d);
+    });
+  }
+  function updateGo(){ $('#go').disabled = !(state.images.length || $('#txt').value.trim()); }
+  function setStatus(msg, cls=''){ const s = $('#status'); s.className = 'status ' + cls; s.innerHTML = msg; }
+
+  // ---------- Claude extraction ----------
+  let samplePromise = (window.claude && claude.use) ? claude.use('sample') : Promise.resolve(null);
+
+  $('#go').addEventListener('click', async () => {
+    const sample = await samplePromise;
+    if (!sample) { setStatus('Event reading is not available in this view. Open the page on claude.ai while signed in.', 'err'); return; }
+    let canImages = false;
+    try { canImages = !!(await sample.limits()).images; } catch(e){}
+    if (state.images.length && !canImages) { setStatus('Image reading is not available here right now. Paste the text instead.', 'err'); return; }
+
+    const now = new Date();
+    const today = now.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const weekday = now.toLocaleDateString('en-US', { weekday: 'long' });
+    const prompt = `You extract calendar events from images and text.
+Today is ${weekday}, ${today}. The user's time zone is ${tz}.
+Find every distinct event, appointment, meeting, deadline, flight, reservation or class in the attached image(s) and in the text below.
+Rules:
+- Resolve relative dates ("next Tuesday", "tomorrow", "Fri 21") to absolute dates using today's date. If a year is missing, pick the next upcoming occurrence.
+- Use 24h times "HH:MM" in the event's local time. If no end time is given, set end to 1 hour after start (or a sensible length for flights/films if obvious).
+- If there is no time at all, set allDay true and start/end to "".
+- For recurring items (e.g. a weekly timetable), list each occurrence in the next 4 weeks, up to 20 events.
+- title: short and clear (max 60 chars). location: address, room or link if present. notes: useful details (booking codes, who, what to bring), max 300 chars.
+- confidence: "high" if date and time are explicit, else "low".
+Return ONLY a JSON array, no prose. Each item: {"title":"","date":"YYYY-MM-DD","start":"HH:MM","end":"HH:MM","endDate":"YYYY-MM-DD","allDay":false,"location":"","notes":"","confidence":"high"}
+If nothing is found, return [].
+
+Text from the user:
+"""${$('#txt').value.trim() || '(none)'}"""`;
+
+    $('#go').disabled = true;
+    setStatus('<span class="spin"></span> Reading your ' + (state.images.length ? state.images.length + ' image(s)' : 'text') + '...');
+    try {
+      const opts = { modelTier: 'default' };
+      if (state.images.length) opts.images = state.images.map(i => i.blob);
+      let out;
+      try { out = await sample.json(prompt, opts); }
+      catch (err) {
+        if (err && (err.code === 'not_granted' || err.code === 'rate_limited')) throw err;
+        const r = await sample(prompt, opts); // fallback: parse manually
+        out = JSON.parse((r.text.match(/\[[\s\S]*\]/) || ['[]'])[0]);
+      }
+      const arr = Array.isArray(out) ? out : (out && Array.isArray(out.events) ? out.events : []);
+      const added = arr.map(normalize).filter(Boolean);
+      state.events.push(...added);
+      renderEvents();
+      setStatus(added.length ? `Found ${added.length} event${added.length>1?'s':''}. Check them below.` : 'No events found. Try a clearer image or paste the text.', added.length ? 'ok' : 'err');
+    } catch (err) {
+      const code = err && err.code;
+      setStatus(code === 'not_granted' ? 'Permission to use Claude was not given. Click "Find events" again to allow it.'
+        : code === 'rate_limited' ? 'Too many requests. Wait a minute and try again.'
+        : 'Something went wrong reading the images. Try again.', 'err');
+    } finally { updateGo(); }
+  });
+
+  function normalize(e){
+    if (!e || typeof e !== 'object') return null;
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : '';
+    const t = v => /^\d{1,2}:\d{2}$/.test(v || '') ? v.padStart(5,'0') : '';
+    const start = t(e.start), end = t(e.end);
+    return {
+      id: Math.random().toString(36).slice(2),
+      title: String(e.title || 'Untitled event').slice(0,120),
+      date: d,
+      endDate: /^\d{4}-\d{2}-\d{2}$/.test(e.endDate) ? e.endDate : d,
+      start, end: end || (start ? addHour(start) : ''),
+      allDay: !!e.allDay || !start,
+      location: String(e.location || ''),
+      notes: String(e.notes || ''),
+      confidence: e.confidence === 'low' || !d ? 'low' : 'high',
+      done: false
+    };
+  }
+  function addHour(hm){ const [h,m] = hm.split(':').map(Number); return String((h+1)%24).padStart(2,'0') + ':' + String(m).padStart(2,'0'); }
+
+  $('#addManual').addEventListener('click', () => {
+    const d = new Date().toLocaleDateString('en-CA');
+    state.events.unshift({ id: Math.random().toString(36).slice(2), title:'', date:d, endDate:d, start:'09:00', end:'10:00', allDay:false, location:'', notes:'', confidence:'high', done:false });
+    renderEvents();
+  });
+
+  // ---------- Microsoft 365 direct sync ----------
+  const M365 = 'Microsoft 365';
+  let mcp = null; state.connected = false; state.who = '';
+  function setConn(msg, on, btn){
+    $('#connMsg').innerHTML = msg;
+    $('#conn').classList.toggle('on', !!on);
+    $('#connBtn').hidden = !btn; if (btn) $('#connBtn').textContent = btn;
+    $('#addAll').hidden = !on;
+  }
+  function connFix(code){
+    if (code === 'needs_reauth') return 'Your Microsoft 365 sign-in expired. Reconnect it in claude.ai Settings, Connectors.';
+    if (code === 'server_not_connected' || code === 'selection_required') return 'Microsoft 365 is not connected for you. Add it in claude.ai Settings, Connectors. You can still use "Open in Outlook".';
+    if (code === 'not_in_manifest' || code === 'approval_required') return 'Outlook access was not allowed for this page. Press Connect to allow it.';
+    if (code === 'blocked_by_policy') return 'Your organization blocks this. Use "Open in Outlook" instead.';
+    return 'Could not reach Outlook right now. Try again in a moment.';
+  }
+  (async () => {
+    try { mcp = (window.claude && claude.use) ? await claude.use('mcp') : null; } catch(e){ mcp = null; }
+    if (!mcp) { setConn('Direct sync is not available in this view. "Open in Outlook" links still work.', false); return; }
+    try {
+      const { servers } = await mcp.listTools(M365);
+      const s = servers && servers[0];
+      if (!s) { setConn(connFix('server_not_connected'), false); return; }
+      if (s.authStatus === 'needs_reauth') { setConn(connFix('needs_reauth'), false); return; }
+      setConn('Connect your Microsoft account so events go straight into your calendar.', false, 'Connect Outlook');
+    } catch(e){ setConn(connFix(e && e.code), false, 'Try again'); }
+  })();
+  $('#connBtn').addEventListener('click', async () => {
+    if (!mcp) return;
+    $('#connBtn').disabled = true;
+    setConn('<span class="spin"></span> Connecting...', false);
+    try {
+      const r = await mcp.callTool(M365, 'get_me', {});
+      const p = r.payload || {};
+      state.who = p.mail || p.userPrincipalName || p.displayName || 'your account';
+      state.connected = true;
+      setConn(`<span class="dot"></span>Connected as <strong>${esc(state.who)}</strong>`, true);
+      $('#connTitle').textContent = 'Outlook connected';
+      renderEvents();
+      if (cal.view === 'cal') loadMonth(); 
+    } catch(e){ setConn(connFix(e && e.code), false, 'Connect Outlook'); }
+    finally { $('#connBtn').disabled = false; }
+  });
+
+  async function createEvent(ev){
+    let ed = ev.endDate || ev.date;
+    if (ed === ev.date && ev.end && ev.end <= ev.start) { const n = new Date(ev.date + 'T00:00:00'); n.setDate(n.getDate()+1); ed = n.toLocaleDateString('en-CA'); }
+    const input = {
+      subject: (ev.title || 'Event').slice(0,255),
+      start: { dateTime: `${ev.date}T${ev.start}:00`, timeZone: tz },
+      end:   { dateTime: `${ed}T${ev.end || addHour(ev.start)}:00`, timeZone: tz },
+      body: ev.notes || '',
+      bodyType: 'text'
+    };
+    if (ev.location) input.location = ev.location.slice(0,512);
+    const r = await mcp.callTool(M365, 'outlook_create_event', input, { cache: false });
+    const p = r.payload || {};
+    return p.webLink || (p.event && p.event.webLink) || '';
+  }
+
+  async function syncOne(ev){
+    ev.syncing = true; ev.err = ''; renderEvents();
+    try { ev.webLink = await createEvent(ev); ev.done = true; ev.synced = true; cal.stale = true; if (mcp && mcp.invalidate) mcp.invalidate(M365, 'outlook_calendar_search').catch(()=>{}); }
+    catch(e){
+      const c = e && e.code;
+      ev.err = (c === 'server_unavailable' || c === 'upstream_error' || c === 'cancelled')
+        ? 'No clear answer from Outlook. Check your calendar before trying again, it may already be there.'
+        : c === 'tool_error' ? 'Outlook refused it: ' + (e.message || 'unknown reason').slice(0,140)
+        : connFix(c);
+    }
+    ev.syncing = false; renderEvents();
+  }
+
+  $('#addAll').addEventListener('click', async () => {
+    const todo = state.events.filter(e => !e.synced && !e.allDay && e.date && e.start);
+    if (!todo.length) { setStatus('Nothing left to add (all-day events use "Open in Outlook").'); return; }
+    $('#addAll').disabled = true;
+    for (const ev of todo) { await syncOne(ev); await new Promise(r => setTimeout(r, 400)); }
+    $('#addAll').disabled = false;
+    const n = todo.filter(e => e.synced).length;
+    setStatus(`Added ${n} of ${todo.length} event${todo.length>1?'s':''} to your calendar.`, n === todo.length ? 'ok' : 'err');
+  });
+
+  // ---------- Calendar view ----------
+  const ymd = d => d.toLocaleDateString('en-CA');
+  function gridRange(){
+    const first = cal.month, s = new Date(first);
+    s.setDate(1 - ((first.getDay() + 6) % 7));
+    const e = new Date(s); e.setDate(s.getDate() + 42);
+    return [s, e];
+  }
+  function parseConcat(s){
+    const out = []; let depth = 0, start = -1, inStr = false, escp = false;
+    for (let i = 0; i < s.length; i++){
+      const c = s[i];
+      if (inStr){ if (escp) escp = false; else if (c === '\\') escp = true; else if (c === '"') inStr = false; continue; }
+      if (c === '"'){ inStr = true; continue; }
+      if (c === '{'){ if (depth === 0) start = i; depth++; }
+      else if (c === '}'){ depth--; if (depth === 0 && start >= 0){ try { out.push(JSON.parse(s.slice(start, i+1))); } catch(e){} start = -1; } }
+    }
+    return out;
+  }
+  function flat(list){
+    const out = [];
+    list.forEach(o => {
+      if (o && typeof o === 'object'){
+        const inner = o.events || o.value || o.results;
+        if (Array.isArray(inner)) out.push(...inner); else out.push(o);
+      }
+    });
+    return out;
+  }
+  function parseItems(r){
+    const p = r && r.payload;
+    if (Array.isArray(p)) return flat(p);
+    let out = [];
+    (r && r.content || []).forEach(b => { if (b.type === 'text' && b.text) out.push(...parseConcat(b.text)); });
+    if (!out.length && p && typeof p === 'object') out = [p];
+    return flat(out);
+  }
+  async function loadMonth(force){
+    if (!mcp || !state.connected){
+      $('#calMsg').className = 'status';
+      $('#calMsg').innerHTML = mcp ? 'Press "Connect Outlook" above to see your calendar here.' : 'Calendar is not available in this view.';
+      renderCal(); return;
+    }
+    const [s, e] = gridRange(), key = ymd(s);
+    if (cal.loading) return;
+    cal.loading = true;
+    $('#calMsg').className = 'status';
+    $('#calMsg').innerHTML = '<span class="spin"></span> Loading your calendar...';
+    const opts = { cache: force ? { staleTime: 60000, gcTime: 300000, refresh: true } : { staleTime: 60000, gcTime: 300000 } };
+    try {
+      let all = [], offset = 0;
+      for (let page = 0; page < 10; page++){
+        const r = await mcp.callTool(M365, 'outlook_calendar_search',
+          { query: '*', afterDateTime: ymd(s), beforeDateTime: ymd(e), limit: 25, offset, order: 'oldest' }, opts);
+        const items = parseItems(r);
+        const next = items.find(x => x && x.nextOffset != null);
+        all.push(...items.filter(x => x && x.start && x.start.dateTime));
+        if (!next || next.nextOffset === offset) break;
+        offset = next.nextOffset;
+      }
+      const seen = new Set();
+      cal.events = all.filter(x => !x.isCancelled && !seen.has(x.id) && seen.add(x.id)).map(x => ({
+        title: x.subject || '(no title)',
+        start: String(x.start.dateTime).slice(0,16),
+        end: x.end && x.end.dateTime ? String(x.end.dateTime).slice(0,16) : '',
+        allDay: !!x.isAllDay,
+        location: x.location || '',
+        link: x.webLink || ''
+      }));
+      cal.loadedKey = key; cal.stale = false;
+      $('#calMsg').innerHTML = `Updated ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+    } catch(err){
+      $('#calMsg').className = 'status err';
+      $('#calMsg').textContent = connFix(err && err.code);
+    } finally { cal.loading = false; renderCal(); }
+  }
+  function dayItems(day){
+    const out = cal.events.filter(x => x.start.slice(0,10) === day ||
+      (x.allDay && x.start.slice(0,10) <= day && x.end && x.end.slice(0,10) > day))
+      .map(x => ({...x, pend: false}));
+    state.events.filter(x => !x.synced && x.date === day).forEach(x => out.push({
+      title: x.title || '(untitled)', start: x.date + 'T' + (x.start || '00:00'),
+      end: x.date + 'T' + (x.end || ''), allDay: x.allDay, location: x.location, pend: true }));
+    return out.sort((a,b) => (a.allDay === b.allDay ? a.start.localeCompare(b.start) : a.allDay ? -1 : 1));
+  }
+  function renderCal(){
+    const m = cal.month, today = ymd(new Date());
+    $('#calTitle').textContent = m.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    const g = $('#calGrid'); g.innerHTML = '';
+    ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d => { const el = document.createElement('div'); el.className = 'cal-dow'; el.textContent = d; g.appendChild(el); });
+    const [s] = gridRange();
+    for (let i = 0; i < 42; i++){
+      const d = new Date(s); d.setDate(s.getDate() + i);
+      const key = ymd(d), items = dayItems(key);
+      const b = document.createElement('button');
+      b.className = 'cal-cell' + (d.getMonth() !== m.getMonth() ? ' out' : '') + (key === today ? ' today' : '') + (key === cal.sel ? ' sel' : '');
+      b.innerHTML = `<span class="num">${d.getDate()}</span>` +
+        items.slice(0,2).map(x => `<span class="pill${x.pend?' pend':''}">${x.allDay?'':esc(x.start.slice(11,16))+' '}${esc(x.title)}</span>`).join('') +
+        (items.length > 2 ? `<span class="more">+${items.length-2} more</span>` : '') +
+        (items.length ? `<span class="dots">${items.slice(0,4).map(x => `<i class="${x.pend?'pend':''}"></i>`).join('')}</span>` : '');
+      b.onclick = () => { cal.sel = key; renderCal(); };
+      g.appendChild(b);
+    }
+    renderDay();
+  }
+  function renderDay(){
+    const d = new Date(cal.sel + 'T12:00:00');
+    $('#dayTitle').textContent = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    const items = dayItems(cal.sel), box = $('#dayList');
+    if (!items.length){ box.innerHTML = '<div class="empty">Nothing on this day.</div>'; return; }
+    box.innerHTML = items.map(x => `
+      <div class="ev" style="${x.pend?'border-style:dashed':''}">
+        <div class="agenda">
+          <span class="time">${x.allDay ? 'All day' : esc(x.start.slice(11,16)) + (x.end && x.end.length >= 16 && x.end.slice(11,16) ? ' – ' + esc(x.end.slice(11,16)) : '')}</span>
+          <div class="what"><strong>${esc(x.title)}</strong>${x.location ? `<div>${esc(x.location)}</div>` : ''}</div>
+          ${x.pend ? '<span class="chip low">Not added yet</span>' : x.link ? `<a class="link" href="${esc(x.link)}" target="_blank" rel="noopener">Open</a>` : ''}
+        </div>
+      </div>`).join('');
+  }
+  function showView(v){
+    cal.view = v;
+    document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === v));
+    $('#viewAdd').hidden = v !== 'add'; $('#viewCal').hidden = v !== 'cal';
+    try { history.replaceState(null, '', v === 'cal' ? '#calendar' : '#'); } catch(e){}
+    if (v === 'cal'){
+      renderCal();
+      const [s] = gridRange();
+      if (state.connected && (cal.stale || cal.loadedKey !== ymd(s))) loadMonth(cal.stale);
+      else if (!state.connected) loadMonth();
+    }
+  }
+  $('#tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) showView(b.dataset.t); });
+  const shift = n => { cal.month = new Date(cal.month.getFullYear(), cal.month.getMonth() + n, 1); renderCal(); loadMonth(); };
+  $('#calPrev').onclick = () => shift(-1);
+  $('#calNext').onclick = () => shift(1);
+  $('#calToday').onclick = () => { const t = new Date(); cal.month = new Date(t.getFullYear(), t.getMonth(), 1); cal.sel = ymd(t); renderCal(); loadMonth(); };
+  $('#calRefresh').onclick = () => loadMonth(true);
+  if (location.hash === '#calendar') showView('cal');
+
+  // ---------- Outlook deep link ----------
+  function offset(dateStr, hm){
+    const dt = new Date(dateStr + 'T' + (hm || '00:00') + ':00');
+    const o = -dt.getTimezoneOffset(), s = o >= 0 ? '+' : '-', a = Math.abs(o);
+    return s + String(Math.floor(a/60)).padStart(2,'0') + ':' + String(a%60).padStart(2,'0');
+  }
+  function outlookUrl(ev){
+    const host = state.acct === 'live' ? 'https://outlook.live.com' : 'https://outlook.office.com';
+    let startdt, enddt;
+    const endDate = ev.endDate || ev.date;
+    if (ev.allDay) {
+      startdt = ev.date;
+      const n = new Date(endDate + 'T00:00:00'); n.setDate(n.getDate() + 1);
+      enddt = n.toLocaleDateString('en-CA');
+    } else {
+      let ed = endDate;
+      if (ed === ev.date && ev.end && ev.end <= ev.start) { const n = new Date(ev.date + 'T00:00:00'); n.setDate(n.getDate()+1); ed = n.toLocaleDateString('en-CA'); }
+      startdt = `${ev.date}T${ev.start}:00${offset(ev.date, ev.start)}`;
+      enddt = `${ed}T${ev.end || addHour(ev.start)}:00${offset(ed, ev.end)}`;
+    }
+    const p = new URLSearchParams({
+      path: '/calendar/action/compose', rru: 'addevent',
+      subject: ev.title || 'Event', startdt, enddt,
+      allday: ev.allDay ? 'true' : 'false',
+      location: ev.location || '', body: ev.notes || ''
+    });
+    return `${host}/calendar/0/deeplink/compose?${p.toString()}`;
+  }
+
+  // ---------- render events ----------
+  function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function renderEvents(){
+    if (cal.view === 'cal') renderCal();
+    const box = $('#events');
+    $('#count').textContent = state.events.length ? `(${state.events.length})` : '';
+    if (!state.events.length) { box.innerHTML = '<div class="empty">Events found in your images will show up here. Check them, then press "Add to Outlook".</div>'; return; }
+    const sorted = [...state.events].sort((a,b) => (a.date + (a.start||'')).localeCompare(b.date + (b.start||'')));
+    box.innerHTML = '';
+    sorted.forEach(ev => {
+      const el = document.createElement('div');
+      el.className = 'ev' + (ev.done ? ' done' : '');
+      const valid = ev.date && (ev.allDay || ev.start);
+      el.innerHTML = `
+        <div class="ev-grid">
+          <div class="t"><label class="small">Title</label><input data-k="title" value="${esc(ev.title)}" placeholder="Event title"></div>
+          <div><label class="small">Date</label><input type="date" data-k="date" value="${esc(ev.date)}"></div>
+          <div><label class="small">Start</label><input type="time" data-k="start" value="${esc(ev.start)}" ${ev.allDay?'disabled':''}></div>
+          <div><label class="small">End</label><input type="time" data-k="end" value="${esc(ev.end)}" ${ev.allDay?'disabled':''}></div>
+          <div class="half"><label class="small">Location</label><input data-k="location" value="${esc(ev.location)}" placeholder="Where"></div>
+          <div class="half"><label class="small">Notes</label><input data-k="notes" value="${esc(ev.notes)}" placeholder="Details"></div>
+        </div>
+        <div class="ev-foot">
+          <div class="row" style="margin:0">
+            <label class="chk"><input type="checkbox" data-k="allDay" ${ev.allDay?'checked':''}> All day</label>
+            ${ev.confidence === 'low' ? '<span class="chip low">Double check the date/time</span>' : ''}
+            ${ev.synced ? `<span class="chip" style="color:var(--ok)">In your calendar${ev.webLink ? ` · <a href="${esc(ev.webLink)}" target="_blank" rel="noopener" style="color:inherit">view</a>` : ''}</span>`
+              : ev.done ? '<span class="chip" style="color:var(--ok)">Opened in Outlook</span>' : ''}
+          </div>
+          <div class="row" style="margin:0">
+            <button class="link" data-act="del">Remove</button>
+            ${!valid ? '<span class="status err">Add a date and time</span>'
+              : (state.connected && !ev.allDay)
+                ? `<a class="link" data-act="go" href="${esc(outlookUrl(ev))}" target="_blank" rel="noopener">Open in Outlook</a>
+                   <button class="btn sm" data-act="sync" ${ev.syncing||ev.synced?'disabled':''}>${ev.syncing?'<span class="spin"></span> Adding':ev.synced?'Added':'Add to calendar'}</button>`
+                : `<a class="btn sm" data-act="go" href="${esc(outlookUrl(ev))}" target="_blank" rel="noopener">Open in Outlook</a>`}
+          </div>
+        </div>
+        ${ev.err ? `<div class="status err" style="margin-top:8px">${esc(ev.err)}</div>` : ''}`;
+      el.addEventListener('change', e => {
+        const k = e.target.dataset.k; if (!k) return;
+        ev[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+        if (k === 'date') ev.endDate = ev.date;
+        if (k === 'start' && ev.start && (!ev.end || ev.end <= ev.start)) ev.end = addHour(ev.start);
+        if (k === 'allDay' && !ev.allDay && !ev.start) { ev.start = '09:00'; ev.end = '10:00'; }
+        if (k === 'date' || k === 'start' || k === 'end') ev.confidence = 'high';
+        renderEvents();
+      });
+      el.addEventListener('click', e => {
+        const a = e.target.closest('[data-act]'); if (!a) return;
+        if (a.dataset.act === 'del') { state.events = state.events.filter(x => x.id !== ev.id); renderEvents(); }
+        if (a.dataset.act === 'go') { ev.done = true; setTimeout(renderEvents, 50); }
+        if (a.dataset.act === 'sync' && !ev.syncing && !ev.synced) syncOne(ev);
+      });
+      box.appendChild(el);
+    });
+  }
+})();
+</script>
+</body>
+</html>
